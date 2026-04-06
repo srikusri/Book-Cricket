@@ -2,7 +2,7 @@ import React from 'react';
 import { useMatch } from '../context/MatchContext';
 
 const SummaryPage = () => {
-  const { matchState, teams, setGamePhase } = useMatch();
+  const { matchState, teams } = useMatch();
 
   const innings1 = matchState.innings[0];
   const innings2 = matchState.innings[1];
@@ -10,13 +10,12 @@ const SummaryPage = () => {
   const team1 = teams[innings1.battingTeam];
   const team2 = teams[innings2.battingTeam];
 
-  const winnerSide = innings1.totalRuns > innings2.totalRuns ? innings1.battingTeam : (innings2.totalRuns > innings1.totalRuns ? innings2.battingTeam : 'Tie');
+  const winnerSide = innings2.totalRuns > innings1.totalRuns ? innings2.battingTeam : (innings1.totalRuns > innings2.totalRuns ? innings1.battingTeam : 'Tie');
   const winnerName = winnerSide === 'Tie' ? 'MATCH TIED' : teams[winnerSide].name;
   const margin = winnerSide === 'Tie' ? '' : `By ${Math.abs(innings1.totalRuns - innings2.totalRuns)} runs`;
 
-  // Determine MVP (highest run scorer)
   let mvp = { name: 'N/A', runs: 0, balls: 0, team: '' };
-  [innings1, innings2].forEach((inn, idx) => {
+  [innings1, innings2].forEach((inn) => {
     const battingSide = inn.battingTeam;
     Object.entries(inn.battingStats).forEach(([playerId, stats]) => {
         if (stats.runs > mvp.runs) {
@@ -27,7 +26,7 @@ const SummaryPage = () => {
   });
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 pb-24">
+    <div className="max-w-4xl mx-auto space-y-8 pb-32">
       {/* Victory Hero Section */}
       <section className="relative overflow-hidden rounded-lg bg-surface-container-high p-8 flex flex-col md:flex-row items-center justify-between gap-8">
         <div className="absolute top-0 right-0 w-64 h-64 celebration-gradient opacity-10 rounded-full -mr-20 -mt-20 blur-3xl"></div>
@@ -39,7 +38,7 @@ const SummaryPage = () => {
           <p className="text-xl text-on-surface-variant font-medium">{margin}</p>
         </div>
         <div className="z-10 flex flex-col items-center justify-center bg-surface-container-lowest p-6 rounded-xl shadow-sm border-2 border-primary/10 min-w-[200px]">
-          <span className="text-xs text-primary font-bold uppercase tracking-widest">Final Score ({teams[innings2.battingTeam].name})</span>
+          <span className="text-xs text-primary font-bold uppercase tracking-widest">Final Score ({team2.name})</span>
           <div className="flex items-baseline gap-2 mt-1">
             <span className="text-6xl font-black text-on-surface">{innings2.totalRuns}</span>
             <span className="text-2xl font-bold text-on-surface-variant">/ {innings2.wickets}</span>
@@ -48,10 +47,9 @@ const SummaryPage = () => {
         </div>
       </section>
 
-      {/* Bento Grid Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* MVP Card */}
-        <div className="md:col-span-4 bg-surface-container-low rounded-lg p-6 flex flex-col justify-between border border-primary/5">
+        <div className="lg:col-span-4 bg-surface-container-low rounded-lg p-6 flex flex-col justify-between border border-primary/5 h-fit">
           <div>
             <h3 className="text-on-surface-variant text-sm font-bold uppercase tracking-widest mb-4">Player of Match</h3>
             <div className="flex items-center gap-4">
@@ -70,59 +68,50 @@ const SummaryPage = () => {
           </div>
         </div>
 
-        {/* Simplified Scorecard (Winner or First Innings) */}
-        <div className="md:col-span-8 bg-surface-container rounded-lg p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-on-surface-variant text-sm font-bold uppercase tracking-widest">Innings Summary: {team1.name}</h3>
-            <div className="flex gap-4">
-              <span className="text-xs font-bold text-outline uppercase w-8 text-right">R</span>
-              <span className="text-xs font-bold text-outline uppercase w-8 text-right">B</span>
-              <span className="text-xs font-bold text-outline uppercase w-10 text-right">SR</span>
-            </div>
-          </div>
-          <div className="space-y-4 max-h-[200px] overflow-y-auto pr-2">
-            {Object.entries(innings1.battingStats).map(([playerId, stats]) => {
-              const player = team1.players.find(p => p.id === parseInt(playerId));
-              return (
-                <div key={playerId}>
-                  <div className="flex items-center justify-between group">
-                    <div className="flex items-center gap-3">
-                      <span className="w-2 h-2 rounded-full bg-primary"></span>
-                      <p className="font-bold text-on-surface">{player?.name || 'Unknown'}</p>
-                    </div>
-                    <div className="flex gap-4 items-center">
-                      <span className="w-8 text-right font-black text-on-surface">{stats.runs}</span>
-                      <span className="w-8 text-right font-medium text-on-surface-variant">{stats.balls}</span>
-                      <span className="w-10 text-right font-medium text-outline text-xs">
-                        {stats.balls > 0 ? ((stats.runs / stats.balls) * 100).toFixed(1) : '0.0'}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="h-px bg-on-surface/5 mt-4"></div>
+        {/* Detailed Scorecards */}
+        <div className="lg:col-span-8 space-y-6">
+          {[
+            { team: team1, innings: innings1, title: 'First Innings' },
+            { team: team2, innings: innings2, title: 'Second Innings' }
+          ].map((item, idx) => (
+            <div key={idx} className="bg-surface-container rounded-lg p-6">
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                    <h3 className="text-on-surface-variant text-sm font-bold uppercase tracking-widest">{item.title}</h3>
+                    <p className="font-black text-xl text-on-surface">{item.team.name}</p>
                 </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Match Stats Highlights */}
-        <div className="md:col-span-12 grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-surface-container-highest p-4 rounded-lg text-center">
-            <p className="text-xs font-bold text-outline-variant uppercase mb-1">Total Runs</p>
-            <p className="text-2xl font-black text-on-surface">{innings1.totalRuns + innings2.totalRuns}</p>
-          </div>
-          <div className="bg-surface-container-highest p-4 rounded-lg text-center">
-            <p className="text-xs font-bold text-outline-variant uppercase mb-1">Total Wickets</p>
-            <p className="text-2xl font-black text-on-surface">{innings1.wickets + innings2.wickets}</p>
-          </div>
-          <div className="bg-surface-container-highest p-4 rounded-lg text-center">
-            <p className="text-xs font-bold text-outline-variant uppercase mb-1">Max Score</p>
-            <p className="text-2xl font-black text-on-surface">{Math.max(innings1.totalRuns, innings2.totalRuns)}</p>
-          </div>
-          <div className="bg-surface-container-highest p-4 rounded-lg text-center">
-            <p className="text-xs font-bold text-outline-variant uppercase mb-1">Overs</p>
-            <p className="text-2xl font-black text-on-surface">{innings1.overs + innings2.overs}</p>
-          </div>
+                <div className="text-right">
+                    <p className="text-2xl font-black text-primary">{item.innings.totalRuns}/{item.innings.wickets}</p>
+                    <p className="text-xs font-bold text-outline-variant">{item.innings.overs}.{item.innings.balls % 6} Overs</p>
+                </div>
+              </div>
+              <div className="space-y-4">
+                <div className="flex justify-end gap-4 px-2 border-b border-on-surface/5 pb-2">
+                    <span className="text-[10px] font-bold text-outline uppercase w-8 text-right">R</span>
+                    <span className="text-[10px] font-bold text-outline uppercase w-8 text-right">B</span>
+                    <span className="text-[10px] font-bold text-outline uppercase w-10 text-right">SR</span>
+                </div>
+                {Object.entries(item.innings.battingStats).map(([playerId, stats]) => {
+                  const player = item.team.players.find(p => p.id === parseInt(playerId));
+                  return (
+                    <div key={playerId} className="flex items-center justify-between group">
+                      <div className="flex items-center gap-3">
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary/40"></span>
+                        <p className="font-bold text-on-surface text-sm">{player?.name || 'Unknown'}</p>
+                      </div>
+                      <div className="flex gap-4 items-center">
+                        <span className="w-8 text-right font-black text-on-surface text-sm">{stats.runs}</span>
+                        <span className="w-8 text-right font-medium text-on-surface-variant text-sm">{stats.balls}</span>
+                        <span className="w-10 text-right font-medium text-outline text-[10px]">
+                          {stats.balls > 0 ? ((stats.runs / stats.balls) * 100).toFixed(1) : '0.0'}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 

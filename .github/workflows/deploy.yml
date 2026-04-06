@@ -3,7 +3,7 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches:
-      - '**' # Triggers on push to ANY branch
+      - main
 
 permissions:
   contents: write

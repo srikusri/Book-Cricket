@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 
 const MatchContext = createContext();
 
@@ -40,7 +40,17 @@ export const MatchProvider = ({ children }) => {
     innings: [ { ...initialInningsState }, { ...initialInningsState } ],
     currentBatterIdx: 0,
     isMatchOver: false,
+    ballHistory: [],
   });
+
+  const [history, setHistory] = useState(() => {
+    const saved = localStorage.getItem('book_cricket_history');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('book_cricket_history', JSON.stringify(history));
+  }, [history]);
 
   const updateTeam = useCallback((side, data) => {
     setTeams(prev => ({
@@ -62,7 +72,6 @@ export const MatchProvider = ({ children }) => {
       newInnings[0].battingTeam = firstBattingTeam;
       newInnings[1].battingTeam = secondBattingTeam;
 
-      // Initialize batting stats for the first batter
       const firstBatterId = teams[firstBattingTeam].players[0].id;
       newInnings[0].battingStats = {
         [firstBatterId]: { runs: 0, balls: 0 }
@@ -74,6 +83,7 @@ export const MatchProvider = ({ children }) => {
         currentBatterIdx: 0,
         currentInnings: 1,
         isMatchOver: false,
+        ballHistory: [],
       };
     });
     setGamePhase('match');
@@ -86,8 +96,10 @@ export const MatchProvider = ({ children }) => {
       const currentInningsIdx = prev.currentInnings - 1;
       const currentInningsState = prev.innings[currentInningsIdx];
 
-      // Safety guard: Ensure batting team is set
       if (!currentInningsState.battingTeam) return prev;
+
+      const snapshot = JSON.parse(JSON.stringify(prev));
+      const newHistory = [...prev.ballHistory, snapshot];
 
       const innings = { ...currentInningsState };
       const battingTeam = teams[innings.battingTeam];
@@ -99,24 +111,27 @@ export const MatchProvider = ({ children }) => {
       let { totalRuns, wickets, balls, overs, recentBalls, battingStats } = innings;
       let { currentBatterIdx, currentInnings, isMatchOver } = prev;
 
-      // Update balls and overs
-      balls += 1;
-      if (balls % 6 === 0) {
-        overs += 1;
+      const isExtra = ballResult === 'WD' || ballResult === 'NB';
+
+      if (!isExtra) {
+        balls += 1;
+        if (balls % 6 === 0) {
+          overs += 1;
+        }
       }
 
-      // Update batting stats for current ball
       battingStats = { ...battingStats };
       if (!battingStats[batterId]) {
         battingStats[batterId] = { runs: 0, balls: 0 };
       }
-      battingStats[batterId].balls += 1;
+      if (!isExtra) {
+        battingStats[batterId].balls += 1;
+      }
 
       if (ballResult === 'W' || ballResult === 0) {
         wickets += 1;
         recentBalls = [...recentBalls, 'W'];
 
-        // Corrected logic: Up to 10 wickets are possible (11 players)
         if (wickets < 10) {
           currentBatterIdx += 1;
           const nextBatter = battingTeam.players[currentBatterIdx];
@@ -124,19 +139,23 @@ export const MatchProvider = ({ children }) => {
             battingStats[nextBatter.id] = { runs: 0, balls: 0 };
           }
         }
+      } else if (isExtra) {
+        totalRuns += 1;
+        recentBalls = [...recentBalls, ballResult === 'WD' ? 'Wd' : 'Nb'];
       } else {
         totalRuns += ballResult;
         recentBalls = [...recentBalls, ballResult];
         battingStats[batterId].runs += ballResult;
       }
 
-      const isInningsOver = wickets >= 10 || overs >= matchConfig.overs;
+      const target = currentInnings === 2 ? prev.innings[0].totalRuns + 1 : null;
+      const isTargetReached = target !== null && totalRuns >= target;
+      const isInningsOver = wickets >= 10 || overs >= matchConfig.overs || isTargetReached;
 
       if (isInningsOver) {
         if (currentInnings === 1) {
           currentInnings = 2;
           currentBatterIdx = 0;
-          // Initialize next innings batting stats
           const nextBattingTeamSide = prev.innings[1].battingTeam;
           const firstBatter = teams[nextBattingTeamSide].players[0];
           const nextInnings = { ...prev.innings[1] };
@@ -150,10 +169,23 @@ export const MatchProvider = ({ children }) => {
             ...prev,
             currentInnings,
             currentBatterIdx,
-            innings: [ { ...innings, totalRuns, wickets, balls, overs, recentBalls, battingStats }, nextInnings ]
+            innings: [ { ...innings, totalRuns, wickets, balls, overs, recentBalls, battingStats }, nextInnings ],
+            ballHistory: newHistory
           };
         } else {
           isMatchOver = true;
+          // Save to history
+          const matchRecord = {
+            id: Date.now(),
+            date: new Date().toLocaleDateString(),
+            teams: { home: teams.home.name, away: teams.away.name },
+            scores: [
+              { team: teams[prev.innings[0].battingTeam].name, runs: prev.innings[0].totalRuns, wickets: prev.innings[0].wickets },
+              { team: teams[prev.innings[1].battingTeam].name, runs: totalRuns, wickets: wickets }
+            ],
+            winner: totalRuns > prev.innings[0].totalRuns ? teams[prev.innings[1].battingTeam].name : (prev.innings[0].totalRuns > totalRuns ? teams[prev.innings[0].battingTeam].name : 'Tie')
+          };
+          setHistory(h => [matchRecord, ...h]);
           setGamePhase('summary');
         }
       }
@@ -166,10 +198,20 @@ export const MatchProvider = ({ children }) => {
         innings: newInnings,
         currentBatterIdx,
         currentInnings,
-        isMatchOver
+        isMatchOver,
+        ballHistory: newHistory
       };
     });
   }, [teams, matchConfig.overs]);
+
+  const undoBall = useCallback(() => {
+    setMatchState(prev => {
+      if (prev.ballHistory.length === 0) return prev;
+      const history = [...prev.ballHistory];
+      const lastState = history.pop();
+      return { ...lastState, ballHistory: history };
+    });
+  }, []);
 
   const handlePageFlip = useCallback(() => {
     const options = [0, 1, 2, 4, 6, 8];
@@ -190,7 +232,9 @@ export const MatchProvider = ({ children }) => {
     setMatchState,
     startMatch,
     handlePageFlip,
-    recordBall
+    recordBall,
+    undoBall,
+    history
   };
 
   return (
