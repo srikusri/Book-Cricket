@@ -6,6 +6,7 @@ import SignupPage from './pages/SignupPage';
 import TossPage from './pages/TossPage';
 import ScoringDashboard from './pages/ScoringDashboard';
 import SummaryPage from './pages/SummaryPage';
+import HistoryPage from './pages/HistoryPage';
 
 // Placeholder Pages
 
@@ -23,6 +24,8 @@ const GameRouter = () => {
       return <ScoringDashboard />;
     case 'summary':
       return <SummaryPage />;
+    case 'history':
+      return <HistoryPage />;
     default:
       return <RulesPage />;
   }
