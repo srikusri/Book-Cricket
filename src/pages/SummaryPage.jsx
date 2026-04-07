@@ -7,24 +7,24 @@ const SummaryPage = () => {
   const innings1 = matchState.innings[0];
   const innings2 = matchState.innings[1];
 
-  const team1 = teams[innings1.battingTeam];
-  const team2 = teams[innings2.battingTeam];
+  const team1 = innings1?.battingTeam ? teams[innings1.battingTeam] : null;
+  const team2 = innings2?.battingTeam ? teams[innings2.battingTeam] : null;
 
   const getWinnerInfo = () => {
-    const runs1 = innings1.totalRuns;
-    const runs2 = innings2.totalRuns;
+    const runs1 = innings1?.totalRuns || 0;
+    const runs2 = innings2?.totalRuns || 0;
 
     if (runs2 > runs1) {
-        const wicketsLeft = 10 - innings2.wickets;
+        const wicketsLeft = 10 - (innings2?.wickets || 0);
         return {
-            name: team2.name,
+            name: team2?.name || 'Team 2',
             margin: `won by ${wicketsLeft} wicket${wicketsLeft > 1 ? 's' : ''}`,
             isTie: false
         };
     } else if (runs1 > runs2) {
         const runMargin = runs1 - runs2;
         return {
-            name: team1.name,
+            name: team1?.name || 'Team 1',
             margin: `won by ${runMargin} run${runMargin > 1 ? 's' : ''}`,
             isTie: false
         };
@@ -37,9 +37,11 @@ const SummaryPage = () => {
 
   let mvp = { name: 'N/A', runs: 0, balls: 0, team: '' };
   [innings1, innings2].forEach((inn) => {
+    if (!inn) return;
     const battingSide = inn.battingTeam;
+    if (!battingSide || !teams[battingSide]) return;
     Object.entries(inn.battingStats).forEach(([playerId, stats]) => {
-        if (stats.runs > mvp.runs) {
+        if (stats.runs > mvp.runs || (mvp.name === 'N/A' && stats.balls > 0)) {
             const player = teams[battingSide].players.find(p => p.id === parseInt(playerId));
             mvp = { name: player?.name || 'Unknown', runs: stats.runs, balls: stats.balls, team: teams[battingSide].name };
         }
@@ -59,12 +61,12 @@ const SummaryPage = () => {
           <p className="text-2xl text-primary font-black uppercase italic tracking-wide">{winner.margin}</p>
         </div>
         <div className="z-10 flex flex-col items-center justify-center bg-surface-container-lowest p-6 rounded-xl shadow-sm border-2 border-primary/10 min-w-[200px]">
-          <span className="text-xs text-primary font-bold uppercase tracking-widest">Final Score ({team2.name})</span>
+          <span className="text-xs text-primary font-bold uppercase tracking-widest">Final Score ({matchState.innings[matchState.currentInnings - 1]?.battingTeam ? teams[matchState.innings[matchState.currentInnings - 1].battingTeam].name : 'Match'})</span>
           <div className="flex items-baseline gap-2 mt-1">
-            <span className="text-6xl font-black text-on-surface">{innings2.totalRuns}</span>
-            <span className="text-2xl font-bold text-on-surface-variant">/ {innings2.wickets}</span>
+            <span className="text-6xl font-black text-on-surface">{matchState.innings[matchState.currentInnings - 1]?.totalRuns || 0}</span>
+            <span className="text-2xl font-bold text-on-surface-variant">/ {matchState.innings[matchState.currentInnings - 1]?.wickets || 0}</span>
           </div>
-          <span className="text-sm font-medium text-outline mt-1">{innings2.overs}.{innings2.balls % 6} Overs Played</span>
+          <span className="text-sm font-medium text-outline mt-1">{matchState.innings[matchState.currentInnings - 1]?.overs || 0}.{(matchState.innings[matchState.currentInnings - 1]?.balls || 0) % 6} Overs Played</span>
         </div>
       </section>
 
@@ -95,7 +97,7 @@ const SummaryPage = () => {
           {[
             { team: team1, innings: innings1, title: 'First Innings' },
             { team: team2, innings: innings2, title: 'Second Innings' }
-          ].map((item, idx) => (
+          ].filter(item => item.team && item.innings).map((item, idx) => (
             <div key={idx} className="bg-surface-container-low rounded-lg overflow-hidden border border-on-surface/5">
               <div className="bg-surface-container px-6 py-4 flex justify-between items-center border-b border-on-surface/5">
                 <div>
