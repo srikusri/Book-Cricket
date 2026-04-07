@@ -140,7 +140,7 @@ const SignupPage = () => {
       {/* FAB for Success/Proceed */}
       <button
         onClick={() => setGamePhase('toss')}
-        className="fixed bottom-28 right-8 bg-gradient-to-br from-primary to-primary-container text-white w-20 h-20 rounded-full shadow-2xl flex items-center justify-center active:scale-95 transition-transform z-[60] group"
+        className="fixed bottom-28 md:bottom-12 right-6 md:right-12 bg-gradient-to-br from-primary to-primary-container text-white w-16 h-16 md:w-20 md:h-20 rounded-full shadow-2xl flex items-center justify-center active:scale-95 transition-transform z-[60] group"
       >
         <span className="material-symbols-outlined text-3xl group-hover:rotate-12 transition-transform" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
       </button>
