@@ -129,12 +129,12 @@ const ScoringDashboard = () => {
             </button>
         </div>
 
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-3 gap-3 md:gap-4">
           {scoreButtons.map((btn, idx) => (
             <button
               key={idx}
               onClick={() => recordBall(btn.value)}
-              className={`${btn.color} ${btn.textColor} ${btn.isLarge ? 'h-32 shadow-lg' : 'h-32'} rounded-xl flex flex-col items-center justify-center transition-all active:scale-95 hover:brightness-95 group relative overflow-hidden`}
+              className={`${btn.color} ${btn.textColor} ${btn.isLarge ? 'h-24 md:h-32 shadow-lg' : 'h-24 md:h-32'} rounded-xl flex flex-col items-center justify-center transition-all active:scale-95 hover:brightness-95 group relative overflow-hidden`}
             >
               {btn.isLegacy && (
                 <div className="absolute top-2 right-2 bg-on-surface/10 px-2 py-0.5 rounded text-[8px] font-black">LEGACY</div>
