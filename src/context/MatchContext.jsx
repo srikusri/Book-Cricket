@@ -16,7 +16,7 @@ const initialTeamState = {
   players: Array(11).fill('').map((_, i) => ({ id: i + 1, name: '' })),
 };
 
-const initialInningsState = {
+const createInningsState = () => ({
   battingTeam: null,
   totalRuns: 0,
   wickets: 0,
@@ -24,7 +24,9 @@ const initialInningsState = {
   balls: 0,
   recentBalls: [],
   battingStats: {},
-};
+  fallOfWickets: [],
+  extras: { wd: 0, nb: 0, total: 0 }
+});
 
 export const MatchProvider = ({ children }) => {
   const [gamePhase, setGamePhase] = useState('rules');
@@ -37,7 +39,7 @@ export const MatchProvider = ({ children }) => {
 
   const [matchState, setMatchState] = useState({
     currentInnings: 1,
-    innings: [ { ...initialInningsState }, { ...initialInningsState } ],
+    innings: [ createInningsState(), createInningsState() ],
     currentBatterIdx: 0,
     isMatchOver: false,
     ballHistory: [],
@@ -68,13 +70,13 @@ export const MatchProvider = ({ children }) => {
     const secondBattingTeam = firstBattingTeam === 'home' ? 'away' : 'home';
 
     setMatchState(prev => {
-      const newInnings = [...prev.innings];
+      const newInnings = [ createInningsState(), createInningsState() ];
       newInnings[0].battingTeam = firstBattingTeam;
       newInnings[1].battingTeam = secondBattingTeam;
 
       const firstBatterId = teams[firstBattingTeam].players[0].id;
       newInnings[0].battingStats = {
-        [firstBatterId]: { runs: 0, balls: 0 }
+        [firstBatterId]: { runs: 0, balls: 0, fours: 0, sixes: 0, isOut: false, howOut: '' }
       };
 
       return {
@@ -102,87 +104,128 @@ export const MatchProvider = ({ children }) => {
       const newHistory = [...prev.ballHistory, snapshot];
 
       const innings = { ...currentInningsState };
+      // Deep copy nested objects
+      innings.recentBalls = [...innings.recentBalls];
+      innings.battingStats = JSON.parse(JSON.stringify(innings.battingStats));
+      innings.fallOfWickets = [...innings.fallOfWickets];
+      innings.extras = { ...innings.extras };
+
       const battingTeam = teams[innings.battingTeam];
       const currentBatter = battingTeam.players[prev.currentBatterIdx];
 
       if (!currentBatter) return prev;
       const batterId = currentBatter.id;
 
-      let { totalRuns, wickets, balls, overs, recentBalls, battingStats } = innings;
+      let { totalRuns, wickets, balls, overs, recentBalls, battingStats, extras, fallOfWickets } = innings;
       let { currentBatterIdx, currentInnings, isMatchOver } = prev;
 
       const isExtra = ballResult === 'WD' || ballResult === 'NB';
 
       if (!isExtra) {
         balls += 1;
-        if (balls % 6 === 0) {
-          overs += 1;
-        }
       }
 
-      battingStats = { ...battingStats };
       if (!battingStats[batterId]) {
-        battingStats[batterId] = { runs: 0, balls: 0 };
+        battingStats[batterId] = { runs: 0, balls: 0, fours: 0, sixes: 0, isOut: false, howOut: '' };
       }
+
       if (!isExtra) {
         battingStats[batterId].balls += 1;
       }
 
       if (ballResult === 'W' || ballResult === 0) {
         wickets += 1;
-        recentBalls = [...recentBalls, 'W'];
+        recentBalls.push('W');
+        battingStats[batterId].isOut = true;
+        battingStats[batterId].howOut = 'b Page 0';
+
+        const overCount = Math.floor((balls-1) / 6);
+        const ballCount = (balls-1) % 6 + 1;
+        fallOfWickets.push({
+            runs: totalRuns,
+            wicket: wickets,
+            over: `${overCount}.${ballCount}`,
+            batter: currentBatter.name || `Player ${currentBatter.id}`
+        });
 
         if (wickets < 10) {
           currentBatterIdx += 1;
           const nextBatter = battingTeam.players[currentBatterIdx];
           if (nextBatter) {
-            battingStats[nextBatter.id] = { runs: 0, balls: 0 };
+            battingStats[nextBatter.id] = { runs: 0, balls: 0, fours: 0, sixes: 0, isOut: false, howOut: '' };
           }
         }
       } else if (isExtra) {
         totalRuns += 1;
-        recentBalls = [...recentBalls, ballResult === 'WD' ? 'Wd' : 'Nb'];
+        extras.total += 1;
+        if (ballResult === 'WD') extras.wd += 1;
+        if (ballResult === 'NB') extras.nb += 1;
+        recentBalls.push(ballResult === 'WD' ? 'Wd' : 'Nb');
       } else {
         totalRuns += ballResult;
-        recentBalls = [...recentBalls, ballResult];
+        recentBalls.push(ballResult);
         battingStats[batterId].runs += ballResult;
+        if (ballResult === 4) battingStats[batterId].fours += 1;
+        if (ballResult === 6) battingStats[batterId].sixes += 1;
+        if (ballResult === 8) battingStats[batterId].sixes += 1;
       }
+
+      overs = Math.floor(balls / 6);
 
       const target = currentInnings === 2 ? prev.innings[0].totalRuns + 1 : null;
       const isTargetReached = target !== null && totalRuns >= target;
-      const isInningsOver = wickets >= 10 || overs >= matchConfig.overs || isTargetReached;
+      const isInningsOver = wickets >= 10 || (balls >= matchConfig.overs * 6) || isTargetReached;
 
       if (isInningsOver) {
         if (currentInnings === 1) {
           const nextBattingTeamSide = prev.innings[1].battingTeam;
           const firstBatter = teams[nextBattingTeamSide].players[0];
-          const nextInnings = { ...prev.innings[1] };
+          const nextInnings = createInningsState();
+          nextInnings.battingTeam = nextBattingTeamSide;
           if (firstBatter) {
             nextInnings.battingStats = {
-              [firstBatter.id]: { runs: 0, balls: 0 }
+              [firstBatter.id]: { runs: 0, balls: 0, fours: 0, sixes: 0, isOut: false, howOut: '' }
             };
           }
 
           setTimeout(() => setGamePhase('inningsBreak'), 0);
           return {
             ...prev,
-            currentInnings: 2,
-            currentBatterIdx: 0,
-            innings: [ { ...innings, totalRuns, wickets, balls, overs, recentBalls, battingStats }, nextInnings ],
+            currentInnings,
+            currentBatterIdx,
+            innings: [ { ...innings, totalRuns, wickets, balls, overs, recentBalls, battingStats, extras, fallOfWickets }, nextInnings ],
             ballHistory: newHistory
           };
         } else {
           isMatchOver = true;
-          // Save to history
+          const finalInnings1 = prev.innings[0];
+          const finalInnings2 = { ...innings, totalRuns, wickets, balls, overs, recentBalls, battingStats, extras, fallOfWickets };
+
+          const getWinnerDetails = () => {
+            const r1 = finalInnings1.totalRuns;
+            const r2 = finalInnings2.totalRuns;
+            if (r2 > r1) {
+                const wLeft = 10 - finalInnings2.wickets;
+                return { name: teams[finalInnings2.battingTeam].name, margin: `won by ${wLeft} wicket${wLeft > 1 ? 's' : ''}` };
+            } else if (r1 > r2) {
+                const rDiff = r1 - r2;
+                return { name: teams[finalInnings1.battingTeam].name, margin: `won by ${rDiff} run${rDiff > 1 ? 's' : ''}` };
+            } else {
+                return { name: 'Tie', margin: 'Match Drawn' };
+            }
+          };
+
+          const winnerInfo = getWinnerDetails();
           const matchRecord = {
             id: Date.now(),
             date: new Date().toLocaleDateString(),
             teams: { home: teams.home.name, away: teams.away.name },
             scores: [
-              { team: teams[prev.innings[0].battingTeam].name, runs: prev.innings[0].totalRuns, wickets: prev.innings[0].wickets },
-              { team: teams[prev.innings[1].battingTeam].name, runs: totalRuns, wickets: wickets }
+              { team: teams[finalInnings1.battingTeam].name, runs: finalInnings1.totalRuns, wickets: finalInnings1.wickets },
+              { team: teams[finalInnings2.battingTeam].name, runs: totalRuns, wickets: wickets }
             ],
-            winner: totalRuns > prev.innings[0].totalRuns ? teams[prev.innings[1].battingTeam].name : (prev.innings[0].totalRuns > totalRuns ? teams[prev.innings[0].battingTeam].name : 'Tie')
+            winner: winnerInfo.name,
+            margin: winnerInfo.margin
           };
           setHistory(h => [matchRecord, ...h]);
           setTimeout(() => setGamePhase('summary'), 0);
@@ -199,7 +242,7 @@ export const MatchProvider = ({ children }) => {
       }
 
       const newInnings = [...prev.innings];
-      newInnings[currentInningsIdx] = { ...innings, totalRuns, wickets, balls, overs, recentBalls, battingStats };
+      newInnings[currentInningsIdx] = { ...innings, totalRuns, wickets, balls, overs, recentBalls, battingStats, extras, fallOfWickets };
 
       return {
         ...prev,
@@ -215,9 +258,9 @@ export const MatchProvider = ({ children }) => {
   const undoBall = useCallback(() => {
     setMatchState(prev => {
       if (prev.ballHistory.length === 0) return prev;
-      const history = [...prev.ballHistory];
-      const lastState = history.pop();
-      return { ...lastState, ballHistory: history };
+      const historySnapshot = [...prev.ballHistory];
+      const lastState = historySnapshot.pop();
+      return { ...lastState, ballHistory: historySnapshot };
     });
   }, []);
 
