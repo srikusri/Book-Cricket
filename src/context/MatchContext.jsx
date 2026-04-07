@@ -154,8 +154,6 @@ export const MatchProvider = ({ children }) => {
 
       if (isInningsOver) {
         if (currentInnings === 1) {
-          currentInnings = 2;
-          currentBatterIdx = 0;
           const nextBattingTeamSide = prev.innings[1].battingTeam;
           const firstBatter = teams[nextBattingTeamSide].players[0];
           const nextInnings = { ...prev.innings[1] };
@@ -165,10 +163,11 @@ export const MatchProvider = ({ children }) => {
             };
           }
 
+          setTimeout(() => setGamePhase('inningsBreak'), 0);
           return {
             ...prev,
-            currentInnings,
-            currentBatterIdx,
+            currentInnings: 2,
+            currentBatterIdx: 0,
             innings: [ { ...innings, totalRuns, wickets, balls, overs, recentBalls, battingStats }, nextInnings ],
             ballHistory: newHistory
           };
@@ -186,7 +185,16 @@ export const MatchProvider = ({ children }) => {
             winner: totalRuns > prev.innings[0].totalRuns ? teams[prev.innings[1].battingTeam].name : (prev.innings[0].totalRuns > totalRuns ? teams[prev.innings[0].battingTeam].name : 'Tie')
           };
           setHistory(h => [matchRecord, ...h]);
-          setGamePhase('summary');
+          setTimeout(() => setGamePhase('summary'), 0);
+
+          const finalInnings = [...prev.innings];
+          finalInnings[1] = { ...innings, totalRuns, wickets, balls, overs, recentBalls, battingStats };
+          return {
+            ...prev,
+            innings: finalInnings,
+            isMatchOver: true,
+            ballHistory: newHistory
+          };
         }
       }
 

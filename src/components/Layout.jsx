@@ -16,9 +16,12 @@ const TopAppBar = () => {
   };
 
   return (
-    <header className="bg-surface-bright dark:bg-emerald-950 flex justify-between items-center w-full px-6 py-4 sticky top-0 z-40">
-      <div className="flex items-center gap-3">
-        <span className="text-2xl font-black text-on-surface dark:text-surface-bright font-headline tracking-tight">BookCricket Elite</span>
+    <header className="bg-surface-bright dark:bg-emerald-950 flex justify-between items-center w-full px-4 md:px-6 py-4 sticky top-0 z-40">
+      <div className="flex items-center gap-2 md:gap-3">
+        <div className="bg-gradient-to-tr from-primary to-primary-container p-2 rounded-xl flex items-center justify-center shadow-lg shadow-primary/20">
+          <span className="material-symbols-outlined text-white text-2xl md:text-3xl" style={{ fontVariationSettings: "'FILL' 1" }}>sports_cricket</span>
+        </div>
+        <span className="text-xl md:text-2xl font-black text-on-surface dark:text-surface-bright font-headline tracking-tight">BookCricket <span className="text-primary italic">Elite</span></span>
       </div>
       <nav className="hidden md:flex items-center gap-8">
         {['arena', 'teams', 'toss', 'rules', 'history'].map((phase) => (
