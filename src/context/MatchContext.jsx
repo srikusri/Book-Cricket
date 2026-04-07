@@ -188,16 +188,15 @@ export const MatchProvider = ({ children }) => {
             };
           }
 
-          setTimeout(() => setGamePhase('inningsBreak'), 0);
+          setGamePhase('inningsBreak');
           return {
             ...prev,
-            currentInnings,
-            currentBatterIdx,
+            currentInnings: 2,
+            currentBatterIdx: 0,
             innings: [ { ...innings, totalRuns, wickets, balls, overs, recentBalls, battingStats, extras, fallOfWickets }, nextInnings ],
             ballHistory: newHistory
           };
         } else {
-          isMatchOver = true;
           const finalInnings1 = prev.innings[0];
           const finalInnings2 = { ...innings, totalRuns, wickets, balls, overs, recentBalls, battingStats, extras, fallOfWickets };
 
@@ -228,10 +227,10 @@ export const MatchProvider = ({ children }) => {
             margin: winnerInfo.margin
           };
           setHistory(h => [matchRecord, ...h]);
-          setTimeout(() => setGamePhase('summary'), 0);
+          setGamePhase('summary');
 
           const finalInnings = [...prev.innings];
-          finalInnings[1] = { ...innings, totalRuns, wickets, balls, overs, recentBalls, battingStats };
+          finalInnings[1] = finalInnings2;
           return {
             ...prev,
             innings: finalInnings,
