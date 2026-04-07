@@ -5,6 +5,7 @@ import RulesPage from './pages/RulesPage';
 import SignupPage from './pages/SignupPage';
 import TossPage from './pages/TossPage';
 import ScoringDashboard from './pages/ScoringDashboard';
+import InningsBreakPage from './pages/InningsBreakPage';
 import SummaryPage from './pages/SummaryPage';
 import HistoryPage from './pages/HistoryPage';
 
@@ -22,6 +23,8 @@ const GameRouter = () => {
       return <TossPage />;
     case 'match':
       return <ScoringDashboard />;
+    case 'inningsBreak':
+      return <InningsBreakPage />;
     case 'summary':
       return <SummaryPage />;
     case 'history':

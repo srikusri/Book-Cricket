@@ -91,19 +91,24 @@ const SummaryPage = () => {
                     <span className="text-[10px] font-bold text-outline uppercase w-8 text-right">B</span>
                     <span className="text-[10px] font-bold text-outline uppercase w-10 text-right">SR</span>
                 </div>
-                {Object.entries(item.innings.battingStats).map(([playerId, stats]) => {
-                  const player = item.team.players.find(p => p.id === parseInt(playerId));
+                {item.team.players.map((player) => {
+                  const stats = item.innings.battingStats[player.id];
+                  const hasBatted = !!stats;
+
                   return (
-                    <div key={playerId} className="flex items-center justify-between group">
+                    <div key={player.id} className={`flex items-center justify-between group ${!hasBatted ? 'opacity-50' : ''}`}>
                       <div className="flex items-center gap-3">
-                        <span className="w-1.5 h-1.5 rounded-full bg-primary/40"></span>
-                        <p className="font-bold text-on-surface text-sm">{player?.name || 'Unknown'}</p>
+                        <span className={`w-1.5 h-1.5 rounded-full ${hasBatted ? 'bg-primary/40' : 'bg-outline-variant/40'}`}></span>
+                        <p className={`font-bold text-sm ${hasBatted ? 'text-on-surface' : 'text-on-surface-variant italic'}`}>
+                          {player.name || `Player ${player.id}`}
+                          {!hasBatted && ' (DNB)'}
+                        </p>
                       </div>
                       <div className="flex gap-4 items-center">
-                        <span className="w-8 text-right font-black text-on-surface text-sm">{stats.runs}</span>
-                        <span className="w-8 text-right font-medium text-on-surface-variant text-sm">{stats.balls}</span>
+                        <span className="w-8 text-right font-black text-on-surface text-sm">{hasBatted ? stats.runs : '-'}</span>
+                        <span className="w-8 text-right font-medium text-on-surface-variant text-sm">{hasBatted ? stats.balls : '-'}</span>
                         <span className="w-10 text-right font-medium text-outline text-[10px]">
-                          {stats.balls > 0 ? ((stats.runs / stats.balls) * 100).toFixed(1) : '0.0'}
+                          {hasBatted && stats.balls > 0 ? ((stats.runs / stats.balls) * 100).toFixed(1) : '-'}
                         </span>
                       </div>
                     </div>
