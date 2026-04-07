@@ -15,9 +15,22 @@ const TopAppBar = () => {
   };
 
   return (
-    <header className="bg-surface-bright dark:bg-emerald-950 flex justify-between items-center w-full px-6 py-4 sticky top-0 z-40">
-      <div className="flex items-center gap-3">
-        <span className="text-2xl font-black text-on-surface dark:text-surface-bright font-headline tracking-tight">BookCricket Elite</span>
+    <header className="bg-surface-bright/80 dark:bg-emerald-950/80 backdrop-blur-md flex justify-between items-center w-full px-4 md:px-6 py-4 sticky top-0 z-40 border-b border-primary/5">
+      <div className="flex items-center gap-2 md:gap-3 group cursor-pointer" onClick={() => setGamePhase('rules')}>
+        <div className="relative">
+          <div className="absolute inset-0 bg-primary blur-lg opacity-20 group-hover:opacity-40 transition-opacity"></div>
+          <div className="bg-gradient-to-br from-primary via-primary to-primary-dim p-2.5 rounded-2xl flex items-center justify-center shadow-xl shadow-primary/20 relative z-10 transform group-hover:scale-105 transition-transform duration-300">
+            <span className="material-symbols-outlined text-white text-2xl md:text-3xl" style={{ fontVariationSettings: "'FILL' 1, 'wght' 600" }}>sports_cricket</span>
+          </div>
+        </div>
+        <div className="flex flex-col -space-y-1">
+          <span className="text-xl md:text-2xl font-black text-on-surface dark:text-surface-bright font-headline tracking-tighter">
+            BookCricket
+          </span>
+          <span className="text-[10px] md:text-xs font-bold text-primary uppercase tracking-[0.3em] pl-0.5">
+            Elite Edition
+          </span>
+        </div>
       </div>
       <nav className="hidden md:flex items-center gap-8">
         {['arena', 'teams', 'toss', 'rules', 'history'].map((phase) => (

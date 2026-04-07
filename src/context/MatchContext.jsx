@@ -178,8 +178,6 @@ export const MatchProvider = ({ children }) => {
 
       if (isInningsOver) {
         if (currentInnings === 1) {
-          currentInnings = 2;
-          currentBatterIdx = 0;
           const nextBattingTeamSide = prev.innings[1].battingTeam;
           const firstBatter = teams[nextBattingTeamSide].players[0];
           const nextInnings = createInningsState();
@@ -190,6 +188,7 @@ export const MatchProvider = ({ children }) => {
             };
           }
 
+          setTimeout(() => setGamePhase('inningsBreak'), 0);
           return {
             ...prev,
             currentInnings,
@@ -229,7 +228,16 @@ export const MatchProvider = ({ children }) => {
             margin: winnerInfo.margin
           };
           setHistory(h => [matchRecord, ...h]);
-          setGamePhase('summary');
+          setTimeout(() => setGamePhase('summary'), 0);
+
+          const finalInnings = [...prev.innings];
+          finalInnings[1] = { ...innings, totalRuns, wickets, balls, overs, recentBalls, battingStats };
+          return {
+            ...prev,
+            innings: finalInnings,
+            isMatchOver: true,
+            ballHistory: newHistory
+          };
         }
       }
 
