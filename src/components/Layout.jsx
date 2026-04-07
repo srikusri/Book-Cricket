@@ -11,7 +11,6 @@ const TopAppBar = () => {
   const isPhaseDisabled = (phase) => {
     if (phase === 'toss') return !canNavigateToToss;
     if (phase === 'arena') return !canNavigateToArena;
-    if (phase === 'history') return !canNavigateToSummary;
     return false;
   };
 
@@ -25,12 +24,11 @@ const TopAppBar = () => {
           <button
             key={phase}
             disabled={isPhaseDisabled(phase)}
-            onClick={() => setGamePhase(phase === 'arena' ? 'match' : (phase === 'teams' ? 'signup' : (phase === 'history' ? 'summary' : phase)))}
+            onClick={() => setGamePhase(phase === 'arena' ? 'match' : (phase === 'teams' ? 'signup' : phase))}
             className={`text-on-surface dark:text-surface-variant font-headline tracking-tight transition-colors active:scale-95 duration-200 capitalize ${
               (gamePhase === phase ||
                (gamePhase === 'signup' && phase === 'teams') ||
-               (gamePhase === 'match' && phase === 'arena') ||
-               (gamePhase === 'summary' && phase === 'history'))
+               (gamePhase === 'match' && phase === 'arena'))
               ? 'text-primary dark:text-primary-fixed font-bold border-b-2 border-primary'
               : 'opacity-70 hover:bg-surface-container'
             } ${isPhaseDisabled(phase) ? 'opacity-30 cursor-not-allowed' : ''}`}
@@ -63,7 +61,7 @@ const BottomNavBar = () => {
     { id: 'signup', label: 'Teams', icon: 'group', disabled: false },
     { id: 'toss', label: 'Toss', icon: 'toll', disabled: !canNavigateToToss },
     { id: 'rules', label: 'Rules', icon: 'menu_book', disabled: false },
-    { id: 'summary', label: 'Summary', icon: 'assessment', disabled: !canNavigateToSummary },
+    { id: 'history', label: 'History', icon: 'history', disabled: false },
   ];
 
   return (

@@ -18,7 +18,6 @@ const SummaryPage = () => {
         const wicketsLeft = 10 - innings2.wickets;
         return {
             name: team2.name,
-            side: innings2.battingTeam,
             margin: `won by ${wicketsLeft} wicket${wicketsLeft > 1 ? 's' : ''}`,
             isTie: false
         };
@@ -26,12 +25,11 @@ const SummaryPage = () => {
         const runMargin = runs1 - runs2;
         return {
             name: team1.name,
-            side: innings1.battingTeam,
             margin: `won by ${runMargin} run${runMargin > 1 ? 's' : ''}`,
             isTie: false
         };
     } else {
-        return { name: 'MATCH TIED', side: 'Tie', margin: 'Match Drawn', isTie: true };
+        return { name: 'MATCH TIED', margin: 'Match Drawn', isTie: true };
     }
   };
 
@@ -113,34 +111,69 @@ const SummaryPage = () => {
               <div className="p-6">
                 <div className="space-y-4">
                   <div className="grid grid-cols-12 gap-2 text-[10px] font-bold uppercase text-outline px-2 border-b border-on-surface/5 pb-2">
-                      <div className="col-span-6">Batting</div>
-                      <div className="col-span-2 text-right">R</div>
-                      <div className="col-span-2 text-right">B</div>
-                      <div className="col-span-2 text-right">SR</div>
+                      <div className="col-span-4">Batting</div>
+                      <div className="col-span-3">Status</div>
+                      <div className="col-span-1 text-right">R</div>
+                      <div className="col-span-1 text-right">B</div>
+                      <div className="col-span-1 text-right">4s</div>
+                      <div className="col-span-1 text-right">6s</div>
+                      <div className="col-span-1 text-right">SR</div>
                   </div>
 
                   {Object.entries(item.innings.battingStats).map(([playerId, stats]) => {
                     const player = item.team.players.find(p => p.id === parseInt(playerId));
                     return (
-                      <div key={playerId} className="grid grid-cols-12 gap-2 px-2 items-center group">
-                        <div className="col-span-6">
-                            <p className="font-bold text-on-surface text-sm">{player?.name || 'Unknown'}</p>
-                            <p className="text-[9px] text-on-surface-variant uppercase font-medium">
-                                {stats.isOut ? 'out' : 'not out'}
-                            </p>
+                      <div key={playerId} className="grid grid-cols-12 gap-2 px-2 items-center group border-b border-on-surface/5 pb-2 last:border-0">
+                        <div className="col-span-4 font-bold text-on-surface text-sm">{player?.name || 'Unknown'}</div>
+                        <div className="col-span-3 text-[10px] text-on-surface-variant uppercase font-medium">
+                            {stats.isOut ? stats.howOut : 'not out'}
                         </div>
-                        <div className="col-span-2 text-right font-black text-sm text-on-surface">{stats.runs}</div>
-                        <div className="col-span-2 text-right text-on-surface-variant text-xs">{stats.balls}</div>
-                        <div className="col-span-2 text-right text-outline text-[10px]">
+                        <div className="col-span-1 text-right font-black text-sm text-on-surface">{stats.runs}</div>
+                        <div className="col-span-1 text-right text-on-surface-variant text-xs">{stats.balls}</div>
+                        <div className="col-span-1 text-right text-on-surface-variant text-xs">{stats.fours}</div>
+                        <div className="col-span-1 text-right text-on-surface-variant text-xs">{stats.sixes}</div>
+                        <div className="col-span-1 text-right text-outline text-[10px]">
                           {stats.balls > 0 ? ((stats.runs / stats.balls) * 100).toFixed(1) : '0.0'}
                         </div>
                       </div>
                     );
                   })}
 
+                  {/* Fall of Wickets */}
+                  {item.innings.fallOfWickets.length > 0 && (
+                      <div className="mt-4 px-2">
+                          <p className="text-[10px] font-bold text-outline-variant uppercase mb-1">Fall of Wickets</p>
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-on-surface-variant">
+                              {item.innings.fallOfWickets.map((fow, fowIdx) => (
+                                  <span key={fowIdx}>
+                                      {fow.runs}-{fow.wicket} ({fow.batter}, {fow.over} ov)
+                                      {fowIdx < item.innings.fallOfWickets.length - 1 ? ',' : ''}
+                                  </span>
+                              ))}
+                          </div>
+                      </div>
+                  )}
+
+                  {/* Did Not Bat */}
+                  {(() => {
+                      const battedIds = Object.keys(item.innings.battingStats).map(id => parseInt(id));
+                      const dnb = item.team.players.filter(p => !battedIds.includes(p.id) && p.name.trim() !== '');
+                      if (dnb.length > 0) {
+                          return (
+                            <div className="mt-2 px-2">
+                                <p className="text-[10px] font-bold text-outline-variant uppercase">Did Not Bat</p>
+                                <p className="text-[10px] text-on-surface-variant font-medium">
+                                    {dnb.map(p => p.name).join(', ')}
+                                </p>
+                            </div>
+                          );
+                      }
+                      return null;
+                  })()}
+
                   <div className="mt-6 pt-4 border-t-2 border-dotted border-on-surface/10 flex justify-between items-center px-2">
                     <div className="flex gap-4">
-                        <p className="text-[10px] font-bold text-outline-variant uppercase">Extras: <span className="text-on-surface">{item.innings.extras.total}</span> <span className="text-[8px] opacity-60">(W {item.innings.extras.wd}, NB {item.innings.extras.nb})</span></p>
+                        <p className="text-[10px] font-bold text-outline-variant uppercase">Extras: <span className="text-on-surface font-black">{item.innings.extras.total}</span> <span className="text-[8px] opacity-60">(W {item.innings.extras.wd}, NB {item.innings.extras.nb})</span></p>
                     </div>
                     <div className="text-right">
                         <p className="text-[10px] font-bold text-outline-variant uppercase">Total Score</p>
