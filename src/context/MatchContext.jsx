@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react';
 
 const MatchContext = createContext();
 
@@ -16,8 +16,8 @@ const initialTeamState = {
   players: Array(11).fill('').map((_, i) => ({ id: i + 1, name: '' })),
 };
 
-const createInningsState = () => ({
-  battingTeam: null,
+const createInningsState = (battingTeamSide = null) => ({
+  battingTeam: battingTeamSide,
   totalRuns: 0,
   wickets: 0,
   overs: 0,
@@ -54,6 +54,80 @@ export const MatchProvider = ({ children }) => {
     localStorage.setItem('book_cricket_history', JSON.stringify(history));
   }, [history]);
 
+  // Handle game phase transitions based on match state
+  useEffect(() => {
+    if (gamePhase !== 'match' || matchState.isMatchOver) return;
+
+    const currentInningsIdx = matchState.currentInnings - 1;
+    const innings = matchState.innings[currentInningsIdx];
+    if (!innings || !innings.battingTeam) return;
+
+    const target = matchState.currentInnings === 2 ? matchState.innings[0].totalRuns + 1 : null;
+    const isTargetReached = target !== null && innings.totalRuns >= target;
+    const isInningsOver = innings.wickets >= 10 || innings.balls >= (matchConfig.overs * 6) || isTargetReached;
+
+    if (isInningsOver) {
+      if (matchState.currentInnings === 1) {
+        setMatchState(prev => {
+            const nextBattingTeamSide = prev.innings[1].battingTeam;
+            const firstBatter = teams[nextBattingTeamSide].players[0];
+            const nextInnings = { ...prev.innings[1] };
+            if (firstBatter) {
+              nextInnings.battingStats = {
+                [firstBatter.id]: { runs: 0, balls: 0, fours: 0, sixes: 0, isOut: false, howOut: '' }
+              };
+            }
+            return {
+              ...prev,
+              currentInnings: 2,
+              currentBatterIdx: 0,
+              innings: [ prev.innings[0], nextInnings ]
+            };
+        });
+        setGamePhase('inningsBreak');
+      } else {
+        setMatchState(prev => ({ ...prev, isMatchOver: true }));
+
+        const r1 = matchState.innings[0].totalRuns;
+        const r2 = innings.totalRuns;
+        let margin = '';
+        let winnerName = '';
+
+        if (r2 > r1) {
+            winnerName = teams[innings.battingTeam].name;
+            const wLeft = 10 - innings.wickets;
+            margin = `won by ${wLeft} wicket${wLeft > 1 ? 's' : ''}`;
+        } else if (r1 > r2) {
+            winnerName = teams[matchState.innings[0].battingTeam].name;
+            const rDiff = r1 - r2;
+            margin = `won by ${rDiff} run${rDiff > 1 ? 's' : ''}`;
+        } else {
+            winnerName = 'Tie';
+            margin = 'Match Drawn';
+        }
+
+        const matchRecord = {
+          id: Date.now(),
+          date: new Date().toLocaleDateString(),
+          teams: { home: teams.home.name, away: teams.away.name },
+          scores: [
+            { team: teams[matchState.innings[0].battingTeam].name, runs: matchState.innings[0].totalRuns, wickets: matchState.innings[0].wickets },
+            { team: teams[innings.battingTeam].name, runs: innings.totalRuns, wickets: innings.wickets }
+          ],
+          winner: winnerName,
+          margin: margin
+        };
+
+        setHistory(h => {
+          if (h.find(r => r.id === matchRecord.id)) return h;
+          return [matchRecord, ...h];
+        });
+
+        setGamePhase('summary');
+      }
+    }
+  }, [matchState, matchConfig.overs, gamePhase, teams]);
+
   const updateTeam = useCallback((side, data) => {
     setTeams(prev => ({
       ...prev,
@@ -69,55 +143,40 @@ export const MatchProvider = ({ children }) => {
     const firstBattingTeam = decision === 'bat' ? tossWinner : (tossWinner === 'home' ? 'away' : 'home');
     const secondBattingTeam = firstBattingTeam === 'home' ? 'away' : 'home';
 
-    setMatchState(prev => {
-      const newInnings = [ createInningsState(), createInningsState() ];
-      newInnings[0].battingTeam = firstBattingTeam;
-      newInnings[1].battingTeam = secondBattingTeam;
-
-      const firstBatterId = teams[firstBattingTeam].players[0].id;
-      newInnings[0].battingStats = {
-        [firstBatterId]: { runs: 0, balls: 0, fours: 0, sixes: 0, isOut: false, howOut: '' }
-      };
-
-      return {
-        ...prev,
-        innings: newInnings,
-        currentBatterIdx: 0,
-        currentInnings: 1,
-        isMatchOver: false,
-        ballHistory: [],
-      };
+    setMatchState({
+      currentInnings: 1,
+      innings: [
+        { ...createInningsState(firstBattingTeam), battingStats: { [teams[firstBattingTeam].players[0].id]: { runs: 0, balls: 0, fours: 0, sixes: 0, isOut: false, howOut: '' } } },
+        createInningsState(secondBattingTeam)
+      ],
+      currentBatterIdx: 0,
+      isMatchOver: false,
+      ballHistory: [],
     });
     setGamePhase('match');
   }, [teams]);
+
+  const startSecondInnings = useCallback(() => {
+    setGamePhase('match');
+  }, []);
 
   const recordBall = useCallback((ballResult) => {
     setMatchState(prev => {
       if (prev.isMatchOver) return prev;
 
       const currentInningsIdx = prev.currentInnings - 1;
-      const currentInningsState = prev.innings[currentInningsIdx];
+      const innings = { ...prev.innings[currentInningsIdx] };
 
-      if (!currentInningsState.battingTeam) return prev;
-
-      const snapshot = JSON.parse(JSON.stringify(prev));
-      const newHistory = [...prev.ballHistory, snapshot];
-
-      const innings = { ...currentInningsState };
-      // Deep copy nested objects
-      innings.recentBalls = [...innings.recentBalls];
-      innings.battingStats = JSON.parse(JSON.stringify(innings.battingStats));
-      innings.fallOfWickets = [...innings.fallOfWickets];
-      innings.extras = { ...innings.extras };
+      if (!innings.battingTeam) return prev;
 
       const battingTeam = teams[innings.battingTeam];
-      const currentBatter = battingTeam.players[prev.currentBatterIdx];
+      let { currentBatterIdx } = prev;
 
+      const currentBatter = battingTeam.players[currentBatterIdx];
       if (!currentBatter) return prev;
       const batterId = currentBatter.id;
 
-      let { totalRuns, wickets, balls, overs, recentBalls, battingStats, extras, fallOfWickets } = innings;
-      let { currentBatterIdx, currentInnings, isMatchOver } = prev;
+      let { totalRuns, wickets, balls, overs, recentBalls, battingStats, extras, fallOfWickets } = JSON.parse(JSON.stringify(innings));
 
       const isExtra = ballResult === 'WD' || ballResult === 'NB';
 
@@ -166,100 +225,31 @@ export const MatchProvider = ({ children }) => {
         recentBalls.push(ballResult);
         battingStats[batterId].runs += ballResult;
         if (ballResult === 4) battingStats[batterId].fours += 1;
-        if (ballResult === 6) battingStats[batterId].sixes += 1;
-        if (ballResult === 8) battingStats[batterId].sixes += 1;
+        if (ballResult === 6 || ballResult === 8) battingStats[batterId].sixes += 1;
       }
 
       overs = Math.floor(balls / 6);
 
-      const target = currentInnings === 2 ? prev.innings[0].totalRuns + 1 : null;
-      const isTargetReached = target !== null && totalRuns >= target;
-      const isInningsOver = wickets >= 10 || (balls >= matchConfig.overs * 6) || isTargetReached;
+      const updatedInnings = { ...innings, totalRuns, wickets, balls, overs, recentBalls, battingStats, extras, fallOfWickets };
+      const newInningsList = [...prev.innings];
+      newInningsList[currentInningsIdx] = updatedInnings;
 
-      if (isInningsOver) {
-        if (currentInnings === 1) {
-          const nextBattingTeamSide = prev.innings[1].battingTeam;
-          const firstBatter = teams[nextBattingTeamSide].players[0];
-          const nextInnings = createInningsState();
-          nextInnings.battingTeam = nextBattingTeamSide;
-          if (firstBatter) {
-            nextInnings.battingStats = {
-              [firstBatter.id]: { runs: 0, balls: 0, fours: 0, sixes: 0, isOut: false, howOut: '' }
-            };
-          }
-
-          setGamePhase('inningsBreak');
-          return {
-            ...prev,
-            currentInnings: 2,
-            currentBatterIdx: 0,
-            innings: [ { ...innings, totalRuns, wickets, balls, overs, recentBalls, battingStats, extras, fallOfWickets }, nextInnings ],
-            ballHistory: newHistory
-          };
-        } else {
-          const finalInnings1 = prev.innings[0];
-          const finalInnings2 = { ...innings, totalRuns, wickets, balls, overs, recentBalls, battingStats, extras, fallOfWickets };
-
-          const getWinnerDetails = () => {
-            const r1 = finalInnings1.totalRuns;
-            const r2 = finalInnings2.totalRuns;
-            if (r2 > r1) {
-                const wLeft = 10 - finalInnings2.wickets;
-                return { name: teams[finalInnings2.battingTeam].name, margin: `won by ${wLeft} wicket${wLeft > 1 ? 's' : ''}` };
-            } else if (r1 > r2) {
-                const rDiff = r1 - r2;
-                return { name: teams[finalInnings1.battingTeam].name, margin: `won by ${rDiff} run${rDiff > 1 ? 's' : ''}` };
-            } else {
-                return { name: 'Tie', margin: 'Match Drawn' };
-            }
-          };
-
-          const winnerInfo = getWinnerDetails();
-          const matchRecord = {
-            id: Date.now(),
-            date: new Date().toLocaleDateString(),
-            teams: { home: teams.home.name, away: teams.away.name },
-            scores: [
-              { team: teams[finalInnings1.battingTeam].name, runs: finalInnings1.totalRuns, wickets: finalInnings1.wickets },
-              { team: teams[finalInnings2.battingTeam].name, runs: totalRuns, wickets: wickets }
-            ],
-            winner: winnerInfo.name,
-            margin: winnerInfo.margin
-          };
-          setHistory(h => [matchRecord, ...h]);
-          setGamePhase('summary');
-
-          const finalInnings = [...prev.innings];
-          finalInnings[1] = finalInnings2;
-          return {
-            ...prev,
-            innings: finalInnings,
-            isMatchOver: true,
-            ballHistory: newHistory
-          };
-        }
-      }
-
-      const newInnings = [...prev.innings];
-      newInnings[currentInningsIdx] = { ...innings, totalRuns, wickets, balls, overs, recentBalls, battingStats, extras, fallOfWickets };
-
+      const { ballHistory: _, ...snapshot } = prev;
       return {
         ...prev,
-        innings: newInnings,
+        innings: newInningsList,
         currentBatterIdx,
-        currentInnings,
-        isMatchOver,
-        ballHistory: newHistory
+        ballHistory: [...prev.ballHistory, JSON.parse(JSON.stringify(snapshot))]
       };
     });
-  }, [teams, matchConfig.overs]);
+  }, [teams]);
 
   const undoBall = useCallback(() => {
     setMatchState(prev => {
       if (prev.ballHistory.length === 0) return prev;
-      const historySnapshot = [...prev.ballHistory];
-      const lastState = historySnapshot.pop();
-      return { ...lastState, ballHistory: historySnapshot };
+      const historyCopy = [...prev.ballHistory];
+      const lastState = historyCopy.pop();
+      return { ...lastState, ballHistory: historyCopy };
     });
   }, []);
 
@@ -269,7 +259,7 @@ export const MatchProvider = ({ children }) => {
     recordBall(result === 0 ? 'W' : result);
   }, [recordBall]);
 
-  const value = {
+  const value = useMemo(() => ({
     gamePhase,
     setGamePhase,
     teams,
@@ -281,11 +271,12 @@ export const MatchProvider = ({ children }) => {
     matchState,
     setMatchState,
     startMatch,
+    startSecondInnings,
     handlePageFlip,
     recordBall,
     undoBall,
     history
-  };
+  }), [gamePhase, teams, updateTeam, matchConfig, toss, matchState, startMatch, startSecondInnings, handlePageFlip, recordBall, undoBall, history]);
 
   return (
     <MatchContext.Provider value={value}>

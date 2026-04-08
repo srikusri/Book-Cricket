@@ -30,6 +30,11 @@ describe('Cricket Scoring Logic', () => {
     }
 
     expect(result.current.matchState.currentInnings).toBe(2);
+    expect(result.current.gamePhase).toBe('inningsBreak');
+
+    act(() => {
+      result.current.startSecondInnings();
+    });
 
     // Second Innings: Target is 11
     act(() => {

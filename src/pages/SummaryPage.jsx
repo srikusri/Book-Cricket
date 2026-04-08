@@ -122,20 +122,25 @@ const SummaryPage = () => {
                       <div className="col-span-1 text-right">SR</div>
                   </div>
 
-                  {Object.entries(item.innings.battingStats).map(([playerId, stats]) => {
-                    const player = item.team.players.find(p => p.id === parseInt(playerId));
+                  {item.team.players.map((player) => {
+                    const stats = item.innings.battingStats[player.id];
+                    const hasBatted = !!stats;
+
                     return (
-                      <div key={playerId} className="grid grid-cols-12 gap-2 px-2 items-center group border-b border-on-surface/5 pb-2 last:border-0">
-                        <div className="col-span-4 font-bold text-on-surface text-sm">{player?.name || 'Unknown'}</div>
-                        <div className="col-span-3 text-[10px] text-on-surface-variant uppercase font-medium">
-                            {stats.isOut ? stats.howOut : 'not out'}
+                      <div key={player.id} className={`grid grid-cols-12 gap-2 px-2 items-center group border-b border-on-surface/5 pb-2 last:border-0 ${!hasBatted ? 'opacity-50' : ''}`}>
+                        <div className="col-span-4 font-bold text-on-surface text-sm">
+                          {player.name || `Player ${player.id}`}
+                          {!hasBatted && ' (DNB)'}
                         </div>
-                        <div className="col-span-1 text-right font-black text-sm text-on-surface">{stats.runs}</div>
-                        <div className="col-span-1 text-right text-on-surface-variant text-xs">{stats.balls}</div>
-                        <div className="col-span-1 text-right text-on-surface-variant text-xs">{stats.fours}</div>
-                        <div className="col-span-1 text-right text-on-surface-variant text-xs">{stats.sixes}</div>
+                        <div className="col-span-3 text-[10px] text-on-surface-variant uppercase font-medium">
+                            {hasBatted ? (stats.isOut ? stats.howOut : 'not out') : '-'}
+                        </div>
+                        <div className="col-span-1 text-right font-black text-sm text-on-surface">{hasBatted ? stats.runs : '-'}</div>
+                        <div className="col-span-1 text-right text-on-surface-variant text-xs">{hasBatted ? stats.balls : '-'}</div>
+                        <div className="col-span-1 text-right text-on-surface-variant text-xs">{hasBatted ? stats.fours : '-'}</div>
+                        <div className="col-span-1 text-right text-on-surface-variant text-xs">{hasBatted ? stats.sixes : '-'}</div>
                         <div className="col-span-1 text-right text-outline text-[10px]">
-                          {stats.balls > 0 ? ((stats.runs / stats.balls) * 100).toFixed(1) : '0.0'}
+                          {hasBatted && stats.balls > 0 ? ((stats.runs / stats.balls) * 100).toFixed(1) : '-'}
                         </div>
                       </div>
                     );
@@ -155,23 +160,6 @@ const SummaryPage = () => {
                           </div>
                       </div>
                   )}
-
-                  {/* Did Not Bat */}
-                  {(() => {
-                      const battedIds = Object.keys(item.innings.battingStats).map(id => parseInt(id));
-                      const dnb = item.team.players.filter(p => !battedIds.includes(p.id) && p.name.trim() !== '');
-                      if (dnb.length > 0) {
-                          return (
-                            <div className="mt-2 px-2">
-                                <p className="text-[10px] font-bold text-outline-variant uppercase">Did Not Bat</p>
-                                <p className="text-[10px] text-on-surface-variant font-medium">
-                                    {dnb.map(p => p.name).join(', ')}
-                                </p>
-                            </div>
-                          );
-                      }
-                      return null;
-                  })()}
 
                   <div className="mt-6 pt-4 border-t-2 border-dotted border-on-surface/10 flex justify-between items-center px-2">
                     <div className="flex gap-4">
