@@ -29,7 +29,10 @@ const HistoryPage = () => {
           history.map((match) => (
             <div key={match.id} className="bg-surface-container-low rounded-xl p-6 border border-primary/5 hover:border-primary/20 transition-all group">
               <div className="flex justify-between items-start mb-4">
-                <span className="text-xs font-bold text-outline-variant uppercase tracking-widest">{match.date}</span>
+                <div className="flex flex-col gap-1">
+                    <span className="text-xs font-bold text-outline-variant uppercase tracking-widest">{match.date}</span>
+                    <p className="text-sm font-black text-primary uppercase tracking-tight italic">{match.margin}</p>
+                </div>
                 <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase ${match.winner === 'Tie' ? 'bg-surface-container-highest text-on-surface-variant' : 'bg-primary-container text-on-primary-container'}`}>
                   {match.winner === 'Tie' ? 'Draw' : `${match.winner} Won`}
                 </span>

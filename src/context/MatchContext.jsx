@@ -24,6 +24,8 @@ const createInningsState = (battingTeamSide = null) => ({
   balls: 0,
   recentBalls: [],
   battingStats: {},
+  fallOfWickets: [],
+  extras: { wd: 0, nb: 0, total: 0 }
 });
 
 export const MatchProvider = ({ children }) => {
@@ -62,13 +64,47 @@ export const MatchProvider = ({ children }) => {
 
     const target = matchState.currentInnings === 2 ? matchState.innings[0].totalRuns + 1 : null;
     const isTargetReached = target !== null && innings.totalRuns >= target;
-    const isInningsOver = innings.wickets >= 10 || innings.overs >= matchConfig.overs || isTargetReached;
+    const isInningsOver = innings.wickets >= 10 || innings.balls >= (matchConfig.overs * 6) || isTargetReached;
 
     if (isInningsOver) {
       if (matchState.currentInnings === 1) {
+        setMatchState(prev => {
+            const nextBattingTeamSide = prev.innings[1].battingTeam;
+            const firstBatter = teams[nextBattingTeamSide].players[0];
+            const nextInnings = { ...prev.innings[1] };
+            if (firstBatter) {
+              nextInnings.battingStats = {
+                [firstBatter.id]: { runs: 0, balls: 0, fours: 0, sixes: 0, isOut: false, howOut: '' }
+              };
+            }
+            return {
+              ...prev,
+              currentInnings: 2,
+              currentBatterIdx: 0,
+              innings: [ prev.innings[0], nextInnings ]
+            };
+        });
         setGamePhase('inningsBreak');
       } else {
         setMatchState(prev => ({ ...prev, isMatchOver: true }));
+
+        const r1 = matchState.innings[0].totalRuns;
+        const r2 = innings.totalRuns;
+        let margin = '';
+        let winnerName = '';
+
+        if (r2 > r1) {
+            winnerName = teams[innings.battingTeam].name;
+            const wLeft = 10 - innings.wickets;
+            margin = `won by ${wLeft} wicket${wLeft > 1 ? 's' : ''}`;
+        } else if (r1 > r2) {
+            winnerName = teams[matchState.innings[0].battingTeam].name;
+            const rDiff = r1 - r2;
+            margin = `won by ${rDiff} run${rDiff > 1 ? 's' : ''}`;
+        } else {
+            winnerName = 'Tie';
+            margin = 'Match Drawn';
+        }
 
         const matchRecord = {
           id: Date.now(),
@@ -78,7 +114,8 @@ export const MatchProvider = ({ children }) => {
             { team: teams[matchState.innings[0].battingTeam].name, runs: matchState.innings[0].totalRuns, wickets: matchState.innings[0].wickets },
             { team: teams[innings.battingTeam].name, runs: innings.totalRuns, wickets: innings.wickets }
           ],
-          winner: innings.totalRuns > matchState.innings[0].totalRuns ? teams[innings.battingTeam].name : (matchState.innings[0].totalRuns > innings.totalRuns ? teams[matchState.innings[0].battingTeam].name : 'Tie')
+          winner: winnerName,
+          margin: margin
         };
 
         setHistory(h => {
@@ -109,7 +146,7 @@ export const MatchProvider = ({ children }) => {
     setMatchState({
       currentInnings: 1,
       innings: [
-        { ...createInningsState(firstBattingTeam), battingStats: { [teams[firstBattingTeam].players[0].id]: { runs: 0, balls: 0 } } },
+        { ...createInningsState(firstBattingTeam), battingStats: { [teams[firstBattingTeam].players[0].id]: { runs: 0, balls: 0, fours: 0, sixes: 0, isOut: false, howOut: '' } } },
         createInningsState(secondBattingTeam)
       ],
       currentBatterIdx: 0,
@@ -120,24 +157,8 @@ export const MatchProvider = ({ children }) => {
   }, [teams]);
 
   const startSecondInnings = useCallback(() => {
-    setMatchState(prev => {
-      const nextBattingTeamSide = prev.innings[1].battingTeam;
-      const firstBatter = teams[nextBattingTeamSide].players[0];
-      const nextInnings = { ...prev.innings[1] };
-      if (firstBatter) {
-        nextInnings.battingStats = {
-          [firstBatter.id]: { runs: 0, balls: 0 }
-        };
-      }
-      return {
-        ...prev,
-        currentInnings: 2,
-        currentBatterIdx: 0,
-        innings: [ prev.innings[0], nextInnings ]
-      };
-    });
     setGamePhase('match');
-  }, [teams]);
+  }, []);
 
   const recordBall = useCallback((ballResult) => {
     setMatchState(prev => {
@@ -149,50 +170,67 @@ export const MatchProvider = ({ children }) => {
       if (!innings.battingTeam) return prev;
 
       const battingTeam = teams[innings.battingTeam];
-      let { currentBatterIdx, currentInnings } = prev;
+      let { currentBatterIdx } = prev;
 
       const currentBatter = battingTeam.players[currentBatterIdx];
       if (!currentBatter) return prev;
       const batterId = currentBatter.id;
 
-      let { totalRuns, wickets, balls, overs, recentBalls, battingStats } = innings;
-      battingStats = { ...battingStats };
+      let { totalRuns, wickets, balls, overs, recentBalls, battingStats, extras, fallOfWickets } = JSON.parse(JSON.stringify(innings));
 
       const isExtra = ballResult === 'WD' || ballResult === 'NB';
 
       if (!isExtra) {
         balls += 1;
-        if (balls % 6 === 0) overs += 1;
       }
 
       if (!battingStats[batterId]) {
-        battingStats[batterId] = { runs: 0, balls: 0 };
+        battingStats[batterId] = { runs: 0, balls: 0, fours: 0, sixes: 0, isOut: false, howOut: '' };
       }
+
       if (!isExtra) {
         battingStats[batterId].balls += 1;
       }
 
       if (ballResult === 'W' || ballResult === 0) {
         wickets += 1;
-        recentBalls = [...recentBalls, 'W'];
+        recentBalls.push('W');
+        battingStats[batterId].isOut = true;
+        battingStats[batterId].howOut = 'b Page 0';
+
+        const overCount = Math.floor((balls-1) / 6);
+        const ballCount = (balls-1) % 6 + 1;
+        fallOfWickets.push({
+            runs: totalRuns,
+            wicket: wickets,
+            over: `${overCount}.${ballCount}`,
+            batter: currentBatter.name || `Player ${currentBatter.id}`
+        });
 
         if (wickets < 10) {
           currentBatterIdx += 1;
           const nextBatter = battingTeam.players[currentBatterIdx];
           if (nextBatter) {
-            battingStats[nextBatter.id] = { runs: 0, balls: 0 };
+            battingStats[nextBatter.id] = { runs: 0, balls: 0, fours: 0, sixes: 0, isOut: false, howOut: '' };
           }
         }
       } else if (isExtra) {
         totalRuns += 1;
-        recentBalls = [...recentBalls, ballResult === 'WD' ? 'Wd' : 'Nb'];
+        extras.total += 1;
+        if (ballResult === 'WD') extras.wd += 1;
+        if (ballResult === 'NB') extras.nb += 1;
+        recentBalls.push(ballResult === 'WD' ? 'Wd' : 'Nb');
       } else {
         totalRuns += ballResult;
-        recentBalls = [...recentBalls, ballResult];
+        recentBalls.push(ballResult);
         battingStats[batterId].runs += ballResult;
+        if (ballResult === 4) battingStats[batterId].fours += 1;
+        if (ballResult === 6 || ballResult === 8) battingStats[batterId].sixes += 1;
       }
 
-      const updatedInnings = { ...innings, totalRuns, wickets, balls, overs, recentBalls, battingStats };
+      overs = Math.floor(balls / 6);
+
+      const updatedInnings = { ...innings, totalRuns, wickets, balls, overs, recentBalls, battingStats, extras, fallOfWickets };
       const newInningsList = [...prev.innings];
       newInningsList[currentInningsIdx] = updatedInnings;
 

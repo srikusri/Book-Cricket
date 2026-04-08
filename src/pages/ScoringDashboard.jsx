@@ -21,8 +21,9 @@ const ScoringDashboard = () => {
   ];
 
   const target = matchState.currentInnings === 2 ? matchState.innings[0].totalRuns + 1 : null;
-  const runsNeeded = target !== null ? target - innings.totalRuns : 0;
-  const ballsRemaining = matchConfig.overs * 6 - innings.balls;
+  const runsNeeded = target !== null ? target - innings.totalRuns : null;
+  const totalBalls = matchConfig.overs * 6;
+  const ballsRemaining = totalBalls - innings.balls;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -33,8 +34,13 @@ const ScoringDashboard = () => {
         </div>
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <div>
-            <span className="font-label text-sm uppercase tracking-widest text-on-surface-variant">
+            <span className="font-label text-sm uppercase tracking-widest text-on-surface-variant flex items-center gap-2">
                 Innings {matchState.currentInnings}
+                {target !== null && (
+                    <span className="bg-primary/10 text-primary px-2 py-0.5 rounded text-[10px] font-black uppercase">
+                        Target: {target}
+                    </span>
+                )}
             </span>
             <div className="flex items-baseline gap-2">
               <h1 className="text-7xl md:text-8xl font-black tracking-tighter text-on-surface">
@@ -44,7 +50,6 @@ const ScoringDashboard = () => {
             {target !== null && (
               <div className="mt-2 flex flex-col gap-1">
                 <div className="flex items-center gap-2">
-                  <span className="bg-primary text-white px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest">Target: {target}</span>
                   <span className="text-on-surface-variant text-sm font-bold">
                     Need {runsNeeded} in {ballsRemaining} balls
                   </span>
@@ -65,6 +70,31 @@ const ScoringDashboard = () => {
             </div>
           </div>
         </div>
+
+        {/* Chase Progress Overlay */}
+        {target !== null && (
+            <div className="mt-6 p-4 bg-primary/5 rounded-xl border border-primary/10 flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white">
+                        <span className="material-symbols-outlined text-sm">trending_up</span>
+                    </div>
+                    <div>
+                        <p className="text-sm font-black text-on-surface uppercase tracking-tight">
+                            {runsNeeded} Runs needed
+                        </p>
+                        <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">
+                            From {ballsRemaining} balls
+                        </p>
+                    </div>
+                </div>
+                <div className="text-right">
+                    <p className="text-[10px] font-bold text-outline-variant uppercase tracking-widest">Req. Rate</p>
+                    <p className="text-lg font-black text-primary">
+                        {ballsRemaining > 0 ? ((runsNeeded / ballsRemaining) * 6).toFixed(2) : '∞'}
+                    </p>
+                </div>
+            </div>
+        )}
 
         {/* Recent Balls Track */}
         <div className="mt-8 flex items-center justify-between gap-3">
