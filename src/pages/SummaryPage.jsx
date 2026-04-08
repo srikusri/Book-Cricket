@@ -12,7 +12,14 @@ const SummaryPage = () => {
 
   const winnerSide = innings2.totalRuns > innings1.totalRuns ? innings2.battingTeam : (innings1.totalRuns > innings2.totalRuns ? innings1.battingTeam : 'Tie');
   const winnerName = winnerSide === 'Tie' ? 'MATCH TIED' : teams[winnerSide].name;
-  const margin = winnerSide === 'Tie' ? '' : `By ${Math.abs(innings1.totalRuns - innings2.totalRuns)} runs`;
+  let margin = '';
+  if (winnerSide !== 'Tie') {
+    if (winnerSide === innings2.battingTeam) {
+        margin = `Won by ${10 - innings2.wickets} wickets`;
+    } else {
+        margin = `Won by ${innings1.totalRuns - innings2.totalRuns} runs`;
+    }
+  }
 
   let mvp = { name: 'N/A', runs: 0, balls: 0, team: '' };
   [innings1, innings2].forEach((inn) => {

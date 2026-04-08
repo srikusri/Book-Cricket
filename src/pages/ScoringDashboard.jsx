@@ -3,7 +3,7 @@ import { useMatch } from '../context/MatchContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const ScoringDashboard = () => {
-  const { matchState, teams, handlePageFlip, undoBall, recordBall } = useMatch();
+  const { matchState, teams, handlePageFlip, undoBall, recordBall, matchConfig } = useMatch();
   const innings = matchState.innings[matchState.currentInnings - 1];
   const battingTeam = teams[innings.battingTeam];
   const currentBatter = battingTeam.players[matchState.currentBatterIdx];
@@ -21,6 +21,8 @@ const ScoringDashboard = () => {
   ];
 
   const target = matchState.currentInnings === 2 ? matchState.innings[0].totalRuns + 1 : null;
+  const runsNeeded = target !== null ? target - innings.totalRuns : 0;
+  const ballsRemaining = matchConfig.overs * 6 - innings.balls;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -29,17 +31,26 @@ const ScoringDashboard = () => {
         <div className="absolute top-0 right-0 p-4 opacity-10">
           <span className="material-symbols-outlined text-9xl">scoreboard</span>
         </div>
-        <div className="flex flex-col md:flex-row justify-between items-end md:items-center gap-6">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <div>
             <span className="font-label text-sm uppercase tracking-widest text-on-surface-variant">
                 Innings {matchState.currentInnings}
-                {target !== null && <span className="ml-2 text-primary font-bold">Target: {target}</span>}
             </span>
             <div className="flex items-baseline gap-2">
               <h1 className="text-7xl md:text-8xl font-black tracking-tighter text-on-surface">
                 {innings.totalRuns}<span className="text-primary">/{innings.wickets}</span>
               </h1>
             </div>
+            {target !== null && (
+              <div className="mt-2 flex flex-col gap-1">
+                <div className="flex items-center gap-2">
+                  <span className="bg-primary text-white px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest">Target: {target}</span>
+                  <span className="text-on-surface-variant text-sm font-bold">
+                    Need {runsNeeded} in {ballsRemaining} balls
+                  </span>
+                </div>
+              </div>
+            )}
             <p className="text-xl font-bold text-on-surface-variant mt-2">{battingTeam.name}</p>
           </div>
           <div className="flex flex-col items-end">
@@ -97,7 +108,7 @@ const ScoringDashboard = () => {
               <span className="material-symbols-outlined">person</span>
             </div>
             <div>
-              <h3 className="font-bold text-lg text-on-surface">{currentBatter?.name || 'Waiting...'}*</h3>
+              <h3 className="font-bold text-lg text-on-surface">{currentBatter?.name || `Player ${matchState.currentBatterIdx + 1}`}*</h3>
               <p className="text-sm text-on-surface-variant">
                 {innings.battingStats[currentBatter?.id]?.runs || 0} ({innings.battingStats[currentBatter?.id]?.balls || 0})
               </p>
@@ -258,18 +269,22 @@ const ScoringDashboard = () => {
                           <div className="col-span-2 text-right">B</div>
                           <div className="col-span-2 text-right">SR</div>
                         </div>
-                        {Object.entries(inn.battingStats).map(([playerId, stats]) => {
-                          const player = team.players.find(p => p.id === parseInt(playerId));
+                        {team.players.map((player) => {
+                          const stats = inn.battingStats[player.id];
+                          const hasBatted = !!stats;
                           const isCurrentlyBatting = innIdx === matchState.currentInnings - 1 && player?.id === battingTeam.players[matchState.currentBatterIdx].id;
+
+                          if (!hasBatted && !isCurrentlyBatting) return null;
+
                           return (
-                            <div key={playerId} className={`grid grid-cols-12 gap-2 px-2 py-1 items-center ${isCurrentlyBatting ? 'bg-primary/5 rounded' : ''}`}>
+                            <div key={player.id} className={`grid grid-cols-12 gap-2 px-2 py-1 items-center ${isCurrentlyBatting ? 'bg-primary/5 rounded' : ''}`}>
                               <div className="col-span-6 text-sm font-bold text-on-surface truncate">
-                                {player?.name || 'Unknown'} {isCurrentlyBatting && '*'}
+                                {player?.name || `Player ${player.id}`} {isCurrentlyBatting && '*'}
                               </div>
-                              <div className="col-span-2 text-right font-black text-sm">{stats.runs}</div>
-                              <div className="col-span-2 text-right text-on-surface-variant text-xs">{stats.balls}</div>
+                              <div className="col-span-2 text-right font-black text-sm">{stats?.runs || 0}</div>
+                              <div className="col-span-2 text-right text-on-surface-variant text-xs">{stats?.balls || 0}</div>
                               <div className="col-span-2 text-right text-outline text-[10px]">
-                                {stats.balls > 0 ? ((stats.runs / stats.balls) * 100).toFixed(0) : '-'}
+                                {stats?.balls > 0 ? ((stats.runs / stats.balls) * 100).toFixed(0) : '-'}
                               </div>
                             </div>
                           );

@@ -2,7 +2,7 @@ import React from 'react';
 import { useMatch } from '../context/MatchContext';
 
 const InningsBreakPage = () => {
-  const { matchState, teams, setGamePhase, matchConfig } = useMatch();
+  const { matchState, teams, startSecondInnings, matchConfig } = useMatch();
 
   const firstInnings = matchState.innings[0];
   const firstBattingTeam = firstInnings?.battingTeam ? teams[firstInnings.battingTeam] : null;
@@ -43,7 +43,7 @@ const InningsBreakPage = () => {
 
         <div className="z-10 pt-4">
           <button
-            onClick={() => setGamePhase('match')}
+            onClick={startSecondInnings}
             className="celebration-gradient text-on-primary px-12 py-6 rounded-2xl font-black text-xl flex items-center justify-center gap-4 shadow-xl shadow-primary/20 hover:scale-105 active:scale-95 transition-all duration-150"
           >
             <span className="material-symbols-outlined text-3xl">bolt</span>
